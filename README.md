@@ -131,12 +131,12 @@ mysql> ```insert into dtables values ('movies', NULL, 'jdbc:mysql://192.168.10.2
 Note: The nodeurl has the specific user's ip address (ie. .10 or .20). nodeid, nodeuser, nodepasswd also correspond with the specific user. <br />
 
 *If continuous failure to connect to any of the databases, try this:*<br />
-mysql> show grants for 'username'@'localhost';<br />
-mysql> flush privileges;<br />
-mysql> select * from mysql.user where user='username' \G;<br />
+mysql> ```show grants for 'username'@'localhost';```<br />
+mysql> ```flush privileges;```<br />
+mysql> ```select * from mysql.user where user='username' \G;```<br />
 
 *If The problem isn't solved, the last resort is to reset root privileges:*<br />
-mysql> update mysql.user set Grant_priv='Y', Super_priv='Y' where User='root';<br />
+mysql> ```update mysql.user set Grant_priv='Y', Super_priv='Y' where User='root';```<br />
 
 Run the script from your local host repo:<br />
 $ ```./run.sh ./cluster.cfg ./sqlfile.sql```<br />
