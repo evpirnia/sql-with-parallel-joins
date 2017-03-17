@@ -16,27 +16,21 @@ def runSQL(argv):
     #     print(n.display())
     # print("end reading localnodes .........")
 
-    #Reads sqlfile, Remove Whitespace, Remove new lines, Parse contents on ';'
-    # print("Reading sqlfile .........")
-    # k = open(sqlfile, "r")
-    # sqlcmds = list(filter(None, k.read().strip().replace("\n"," ").split(';')))
-    # for s in sqlcmds:
-    #     print()
-    #     print(s)
-    # print("end reading sqlfile .........")
+    # Count Duplicate Tables
+    duplicatetables = getDuplicates(localnodes)
+
+    # If there is more than 1 dupicate table
+    if(len(duplicatetables) > 0):
+        print("There are duplicate tables.", '\n')
 
     # Execute commands read in from sqlfile, Remove Whitespace, Remove new lines, Parse contents on ';'
-    print("Executing sqlfile .........")
     data = []
     k = open(sqlfile, "r")
     sqlcmds = list(filter(None, k.read().strip().replace("\n"," ").split(';')))
     for s in sqlcmds:
-        print(s)
+        print("Executing sql statement.....",'\n',s,'\n')
         for n in localnodes:
-            data = runCommands(n, s, sqlfile)
-    print("end executing sqlfile .........")
-    for d in data:
-        print(d)
+            ret = runCommands(n, s, sqlfile)
 
     # run sql commands via threading
     # threads = []
@@ -44,7 +38,19 @@ def runSQL(argv):
     #     for n in nodes:
     #         threads.append(NodeThread(n, s, sqlfile).start())
 
-    k.close()
+    # k.close()
+
+def getDuplicates(localnodes):
+    temp = []
+    alltables = []
+    for nodes in localnodes:
+        for table in nodes.getTables():
+            alltables.append(table)
+    for table in alltables:
+        if alltables.count(table) >= 2:
+            if table not in temp:
+                temp.append(table)
+    return temp
 
 def readClustercfg(clustercfg):
     num = 0
@@ -86,7 +92,7 @@ def readClustercfg(clustercfg):
     return temp2
 
 def runCommands(n, s, sqlfile):
-    temp = []
+    retval = []
     try:
         connect = pymysql.connect(n.hostname, n.username, n.passwd, n.db)
         cur = connect.cursor()
@@ -94,16 +100,16 @@ def runCommands(n, s, sqlfile):
         temp = cur.fetchall()
         for t in temp:
             print(t)
-        # if(temp[0] == NULL):
-        print("[", n.url, "]:", sqlfile, " success.")
-        # else:
-        #     print("[", n.url, "]:", sqlfile, " failed.")
+            retval.append(t)
         connect.close()
     except pymysql.OperationalError:
         print("[", n.url, "]:", sqlfile, " failed op.")
     except pymysql.ProgrammingError:
         print("[", n.url, "]:", sqlfile, " failed pr.")
-    return temp
+    if len(retval) > 0:
+        print("[", n.url, "]:", sqlfile, " success.")
+    else:
+        print("[", n.url, "]:", sqlfile, " failed.")
 
 class NodeThread(threading.Thread):
     def __init__(self, node, cmd, sqlfile):
@@ -219,6 +225,5 @@ class Node:
         except pymysql.InternalError:
             pass
         return temp
-
 
 runSQL(argv)
