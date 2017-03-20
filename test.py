@@ -18,38 +18,53 @@ def runSQL(argv):
     mergeDuplicates(localnodes)
 
     # Execute commands read in from edited sqlfile
-    data = []
+    # data = []
+    # k = open(sqlfile, "r")
+    # sqlcmds = list(filter(None, k.read().strip().replace("\n"," ").split(';')))
+    # for s in sqlcmds:
+    #
+    #     # check if cmd involes tables that are partitioned on each node
+    #     s_new = checkFrom(s, duplicatetables)
+    #
+    #     # if sql command involes tables that are partitioned, use the temp tables
+    #     if s.find(s_new) == -1:
+    #         data = runCommand(localnodes[0], s_new, sqlfile, 1)
+    #
+    #     for n in localnodes:
+    #         data2 = runCommand(n, s, sqlfile, 0)
+    #         for d2 in data2:
+    #             if d2 not in data:
+    #                 data.append(d2)
+    #
+    # for d in data:
+    #     print(d)
+    #
+    # # delete all temp tables created
+    # for d in duplicatetables:
+    #     cleanupMerge(localnodes[0], d)
+
+    # run sql commands via threading
+    threads = []
     k = open(sqlfile, "r")
     sqlcmds = list(filter(None, k.read().strip().replace("\n"," ").split(';')))
+    k.close()
     for s in sqlcmds:
-
         # check if cmd involes tables that are partitioned on each node
         s_new = checkFrom(s, duplicatetables)
-
         # if sql command involes tables that are partitioned, use the temp tables
         if s.find(s_new) == -1:
-            data = runCommand(localnodes[0], s_new, sqlfile, 1)
+            threads.append(NodeThread(localnodes[0], s_new, sqlfile, 1).start())
+            # still try to run the sql cmd on the nodes but do not let them print output
+            for n in localnodes:
+                threads.append(NodeThread(n, s, sqlfile, 0).start())
+        else:
+            for n in localnodes:
+                threads.append(NodeThread(n, s, sqlfile, 1).start())
 
-        for n in localnodes:
-            data2 = runCommand(n, s, sqlfile, 0)
-            for d in data2:
-                if d not in data:
-                    data.append(d)
-
-    for d in data:
-        print(d)
 
     # delete all temp tables created
     for d in duplicatetables:
         cleanupMerge(localnodes[0], d)
-
-    # run sql commands via threading
-    # threads = []
-    # for s in sqlcmds:
-    #     for n in nodes:
-    #         threads.append(NodeThread(n, s, sqlfile).start())
-
-    # k.close()
 
 def checkFrom(sqlcmd, duplicates):
     for d in duplicates:
@@ -172,25 +187,26 @@ def runCommand(n, s, sqlfile, mood):
         for t in temp:
             retval.append(t)
         connect.close()
-    except pymysql.OperationalError:
-        print("[", n.url, "]:", sqlfile, " failed op.")
-    except pymysql.ProgrammingError:
-        print("[", n.url, "]:", sqlfile, " failed pr.")
+    except pymysql.Error:
+        print("Error")
     if mood == 0:
         if len(retval) > 0:
             print("[", n.url, "]:", sqlfile, " success.")
         else:
             print("[", n.url, "]:", sqlfile, " failed.")
-    return retval
+    else:
+        for r in retval:
+            print(r)
 
 class NodeThread(threading.Thread):
-    def __init__(self, node, cmd, sqlfile):
+    def __init__(self, node, cmd, sqlfile, mood):
         threading.Thread.__init__(self)
         self.node = node
         self.cmd = cmd
         self.sqlfile = sqlfile
+        self.mood = mood
     def run(self):
-        runCommands(self.node, self.cmd, self.sqlfile)
+        runCommand(self.node, self.cmd, self.sqlfile, self.mood)
 
 class Catalog:
     'Base Class for Catalog'
