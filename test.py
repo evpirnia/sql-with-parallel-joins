@@ -11,26 +11,37 @@ def runSQL(argv):
     # Reads clustercfg file line by line for catalog information and localnode information
     localnodes = readClustercfg(clustercfg)
 
-    # print("Reading localnodes .........")
-    # for n in localnodes:
-    #     print(n.display())
-    # print("end reading localnodes .........")
-
     # Count Duplicate Tables
     duplicatetables = getDuplicates(localnodes)
 
-    # If there is more than 1 dupicate table
-    if(len(duplicatetables) > 0):
-        print("There are duplicate tables.", '\n')
+    # returns 1 if tables are merged, returns 0 if tables are not merged
+    mergeDuplicates(localnodes)
 
-    # Execute commands read in from sqlfile, Remove Whitespace, Remove new lines, Parse contents on ';'
+    # Execute commands read in from edited sqlfile
     data = []
     k = open(sqlfile, "r")
     sqlcmds = list(filter(None, k.read().strip().replace("\n"," ").split(';')))
     for s in sqlcmds:
-        print("Executing sql statement.....",'\n',s,'\n')
+
+        # check if cmd involes tables that are partitioned on each node
+        s_new = checkFrom(s, duplicatetables)
+
+        # if sql command involes tables that are partitioned, use the temp tables
+        if s.find(s_new) == -1:
+            data = runCommand(localnodes[0], s_new, sqlfile, 1)
+
         for n in localnodes:
-            ret = runCommands(n, s, sqlfile)
+            data2 = runCommand(n, s, sqlfile, 0)
+            for d in data2:
+                if d not in data:
+                    data.append(d)
+
+    for d in data:
+        print(d)
+
+    # delete all temp tables created
+    for d in duplicatetables:
+        cleanupMerge(localnodes[0], d)
 
     # run sql commands via threading
     # threads = []
@@ -39,6 +50,66 @@ def runSQL(argv):
     #         threads.append(NodeThread(n, s, sqlfile).start())
 
     # k.close()
+
+def checkFrom(sqlcmd, duplicates):
+    for d in duplicates:
+        if sqlcmd.find(d) > -1:
+            sqlcmd = sqlcmd.replace(d, "temp%s" % (d))
+    return sqlcmd
+
+def mergeDuplicates(localnodes):
+    for n in localnodes:
+        if n.num == 1:
+            top = n
+        else:
+            for toptables in top.getTables():
+                for ntables in n.getTables():
+                    if toptables.find(ntables) > -1:
+                        runMerge(n, top, ntables)
+
+def runMerge(n, t, tablename):
+    try:
+        # connect to both databases
+        nconnect = pymysql.connect(n.hostname, n.username, n.passwd, n.db)
+        tconnect = pymysql.connect(t.hostname, t.username, t.passwd, t.db)
+        ncur = nconnect.cursor()
+        tcur = tconnect.cursor()
+        cmd = "SELECT * from %s" % (tablename)
+        ncur.execute(cmd)
+        temp = ncur.fetchall()
+        cmd = "CREATE TABLE temp%s (select * from %s)" % (tablename, tablename)
+        tcur.execute(cmd)
+        # add column NODE to reference which nodes were merged
+        cmd = "ALTER TABLE temp%s ADD nodenum VARCHAR(32)" % (tablename)
+        tcur.execute(cmd)
+        cmd = "UPDATE temp%s SET nodenum=%s" % (tablename, t.num)
+        tcur.execute(cmd)
+        for t in temp:
+            if str(t).find("datetime.date") > -1:
+                index = str(t).find("datetime.date")
+                datetime = str(t)[(index+14):].replace("))","").replace(" ", "").split(",")
+                year = datetime[0]
+                month = datetime[1]
+                day = datetime[2]
+                t = str(t)[:index] + "'" + year + "-" + month + "-" + day + "'"+ str(t)[(index+25):]
+            t = str(t)[:len(str(t))-1] + ", " + str(n.num) + str(t)[len(str(t))-1:]
+            cmd = "INSERT INTO temp%s values %s" % (tablename, t)
+            tcur.execute(cmd)
+            tconnect.commit()
+        nconnect.close()
+        tconnect.close()
+    except pymysql.Error:
+        print("Error")
+
+def cleanupMerge(t, tablename):
+    try:
+        tconnect = pymysql.connect(t.hostname, t.username, t.passwd, t.db)
+        tcur = tconnect.cursor()
+        cmd = "DROP TABLE temp%s" % (tablename)
+        tcur.execute(cmd)
+        tconnect.close()
+    except pymysql.Error:
+        print("Error")
 
 def getDuplicates(localnodes):
     temp = []
@@ -91,7 +162,7 @@ def readClustercfg(clustercfg):
                         catalog.add(n)
     return temp2
 
-def runCommands(n, s, sqlfile):
+def runCommand(n, s, sqlfile, mood):
     retval = []
     try:
         connect = pymysql.connect(n.hostname, n.username, n.passwd, n.db)
@@ -99,17 +170,18 @@ def runCommands(n, s, sqlfile):
         cur.execute(s)
         temp = cur.fetchall()
         for t in temp:
-            print(t)
             retval.append(t)
         connect.close()
     except pymysql.OperationalError:
         print("[", n.url, "]:", sqlfile, " failed op.")
     except pymysql.ProgrammingError:
         print("[", n.url, "]:", sqlfile, " failed pr.")
-    if len(retval) > 0:
-        print("[", n.url, "]:", sqlfile, " success.")
-    else:
-        print("[", n.url, "]:", sqlfile, " failed.")
+    if mood == 0:
+        if len(retval) > 0:
+            print("[", n.url, "]:", sqlfile, " success.")
+        else:
+            print("[", n.url, "]:", sqlfile, " failed.")
+    return retval
 
 class NodeThread(threading.Thread):
     def __init__(self, node, cmd, sqlfile):
