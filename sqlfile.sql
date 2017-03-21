@@ -1,4 +1,4 @@
-SELECT S.name, S.id
-FROM sailors S, reserves R
-WHERE S.id=R.id and R.day='2017-03-05'
-;
+title,rating
+
+Harry Potter,9
+Harry Potter2,21
