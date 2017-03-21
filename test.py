@@ -14,7 +14,6 @@ def runSQL(argv):
     # Count Duplicate Tables
     duplicatetables = getDuplicates(localnodes)
 
-    # returns 1 if tables are merged, returns 0 if tables are not merged
     mergeDuplicates(localnodes)
 
     # Execute commands read in from edited sqlfile
