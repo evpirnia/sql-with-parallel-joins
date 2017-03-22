@@ -1,0 +1,14 @@
+#!/bin/bash
+
+echo "* initialize catalog with books"
+cd catalog
+vagrant up > garbage.txt
+vagrant ssh -c "cd /vagrant && mysql -u root -ppassword catDB < test3-jane-1.pre.2.sql" &> garbage.txt
+echo "* empyting books table on machine 1"
+cd ../machine1
+vagrant up > garbage.txt
+vagrant ssh -c "cd /vagrant && mysql -u root -ppassword testDB1 < test3-jane-1.pre.1.sql" &> garbage.txt
+echo "* emptying books table on machine 2"
+cd ../machine2
+vagrant up > garbage.txt
+vagrant ssh -c "cd /vagrant && mysql -u root -ppassword testDB2 < test3-jane-1.pre.1.sql" &> garbage.txt

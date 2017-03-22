@@ -16,7 +16,7 @@ def runSQL(argv):
     allnodes = readClustercfg(clustercfg, catalog)
 
     for n in allnodes:
-        if n is Node:
+        if(str(n).find("Node") > -1):
             localnodes.append(n)
         else:
             partitionmtd.append(n)
@@ -24,13 +24,14 @@ def runSQL(argv):
     # if clustercfg only has catalog information, read the catalog and create the localnodes list
     if not localnodes:
         localnodes = catalog.read()
-
-    # run sql commands via threading
-    print(partitionmtd)
-    if not partitionmtd:
-        readsql(sqlfile, localnodes, catalog)
+        if not partitionmtd:
+            # clustercfg only has catalog information, read catalog
+            readsql(sqlfile, localnodes, catalog)
+        else:
+            # clustercfg only has catalog and partition info
+            readcsv(partitionmtd, sqlfile, localnodes, catalog)
     else:
-        readcsv(partitionmtd, sqlfile, localnodes, catalog)
+        readsql(sqlfile, localnodes, catalog)
 
 def readcsv(partitionmtd, sqlfile, localnodes, catalog):
     csvcontents = []
@@ -49,7 +50,7 @@ def readcsv(partitionmtd, sqlfile, localnodes, catalog):
     # all csv added to table
     if partmtd == 0:
         tname = partitionmtd[0][0]
-        catalog.insert0(header, connections, csvcontents, tname)
+        catalog.insert0(healder, connections, csvcontents, tname)
     # numnodes in catalog relation and the number of partitons in the config files must be the same
     # update nodes accordingly
     elif partmtd == 1:
@@ -61,10 +62,6 @@ def readcsv(partitionmtd, sqlfile, localnodes, catalog):
             print("Error")
         else:
             for m in partitionmtd:
-                # print("m....")
-                # for n in m:
-                #     print(n)
-                # print("end m....")
                 catalog.insert1(header, connections, csvcontents, m, m[0])
     # only values that meet hash function are added to table
     elif partmtd == 2:
@@ -72,9 +69,6 @@ def readcsv(partitionmtd, sqlfile, localnodes, catalog):
             catalog.insert2(header, connections, csvcontents, m, m[0])
 
 def readsql(sql, localnodes, catalog):
-    # Count Duplicate Tables
-    duplicatetables = getDuplicates(localnodes)
-    mergeDuplicates(localnodes)
     threads = []
     k = open(sql, "r")
     sqlcmds = list(filter(None, k.read().strip().replace("\n"," ").split(';')))
@@ -83,33 +77,46 @@ def readsql(sql, localnodes, catalog):
         smoo = getSmoo(s.split(" ")[0])
         # create command
         if smoo == 0:
-            table = s.split("TABLE ")[1].split("(")[0]
+            # update catalog is false
+            printcatmsg = 0
+            table = s.lower().split("table ")[1].split("(")[0]
             for n in localnodes:
-                threads.append(NodeThread(n, s, sqlfile, 2).start())
-            update = 0
-            for n in localnodes:
-                update = catalog.update(table, n)
-            if update == 1:
-                print("[", catalog.url, "]: catalog updated.")
+                t = NodeThread(n, s, sql, 2, 0)
+                threads.append(t)
+                t.start()
+                t.join()
+                # threads.append(NodeThread(n, s, sql, 2, updatecatalog).start())
+            for t in threads:
+                if t.updatecatalog == 1:
+                    printcatmsg = 1
+                    catalog.update(table, t.node)
+            if printcatmsg == 1:
+                print("[" + catalog.url + "]: catalog updated")
+            else:
+                print("[" + catalog.url + "]: catalog not updated")
+
         # select command
         elif smoo == 1:
+            # Count Duplicate Tables
+            duplicatetables = getDuplicates(localnodes)
+            if duplicatetables:
+                mergeDuplicates(localnodes)
             # check if cmd involes tables that are partitioned on each node
             s_new = checkFrom(s, duplicatetables)
             # if sql command involes tables that are partitioned, use the temp tables
             if s.find(s_new) == -1:
-                threads.append(NodeThread(localnodes[0], s_new, sqlfile, 0).start())
+                threads.append(NodeThread(localnodes[0], s_new, sql, -1, 0).start())
                 # still try to run the sql cmd on the nodes but do not let them print output
                 for n in localnodes:
-                    threads.append(NodeThread(n, s, sqlfile, 0).start())
+                    threads.append(NodeThread(n, s, sql, 0, 0).start())
             else:
                 for n in localnodes:
-                    threads.append(NodeThread(n, s, sqlfile, 1).start())
+                    threads.append(NodeThread(n, s, sql, 1, 0).start())
+            # delete all temp tables created
+            for d in duplicatetables:
+                cleanupMerge(localnodes[0], d)
         else:
             print("Invalid SQL File Command: ", getSmoo(s.split(" ")[0]))
-
-    # delete all temp tables created
-    for d in duplicatetables:
-        cleanupMerge(localnodes[0], d)
 
 def getSmoo(sqlcmdfirst):
     if sqlcmdfirst.lower().find("create") > -1:
@@ -117,6 +124,7 @@ def getSmoo(sqlcmdfirst):
     elif sqlcmdfirst.lower().find("select") > -1:
         return 1
     else:
+        # assume csv contents
         return -1
 
 def checkFrom(sqlcmd, duplicates):
@@ -167,7 +175,7 @@ def runMerge(n, t, tablename):
         nconnect.close()
         tconnect.close()
     except pymysql.Error:
-        print("Error")
+        pass
 
 def cleanupMerge(t, tablename):
     try:
@@ -193,6 +201,7 @@ def getDuplicates(localnodes):
 
 def readClustercfg(clustercfg, catalog):
     num = 0
+    partmtd = -1
     temp2 = []
     k = open(clustercfg, "r")
     with open(clustercfg) as fin:
@@ -230,7 +239,7 @@ def readClustercfg(clustercfg, catalog):
                         temp2.append(n)
                         tables = n.getTables()
                         for t in tables:
-                            __catalog__.update(t, n)
+                            catalog.update(t, n)
                 elif temp[0].find("tablename") > -1:
                     tname = temp[1]
                 elif temp[0].find("partition.method") > -1:
@@ -277,7 +286,8 @@ def readClustercfg(clustercfg, catalog):
 
     return temp2
 
-def runCommand(n, s, sqlfile, moo):
+def runCommand(n, s, sqlfile, moo, updatecatalog):
+    updatecatalog = 0
     retval = []
     try:
         connect = pymysql.connect(n.hostname, n.username, n.passwd, n.db)
@@ -289,26 +299,33 @@ def runCommand(n, s, sqlfile, moo):
         connect.close()
     except pymysql.ProgrammingError:
         print("[", n.url, "]:", sqlfile, " failed.")
-        return
+        return updatecatalog
     except pymysql.InternalError:
         print("[", n.url, "]:", sqlfile, " failed.")
-        return
-    if moo == 0:
-        # partition select
+        return updatecatalog
+    if moo == -1:
+        if len(retval) > 0:
+            getOutput(retval)
+    elif moo == 0:
+        # partition select for all nodes
         if len(retval) > 0:
             print("[", n.url, "]:", sqlfile, " success.")
+            updatecatalog = 1
         else:
             print("[", n.url, "]:", sqlfile, " failed.")
     elif moo == 2:
         #create
-        print("[", n.url, "]:", sqlfile, " success.")
+        print("2[", n.url, "]:", sqlfile, " success.")
+        updatecatalog = 1
     else:
         # nonpartitioned select
         if len(retval) > 0:
             print("[", n.url, "]:", sqlfile, " success.")
             getOutput(retval)
+            updatecatalog = 1
         else:
-            print("[", n.url, "]:", sqlfile, " failed.")
+            print("", n.url, "]:", sqlfile, " failed.")
+    return updatecatalog
 
 def getOutput(output):
     for d in output:
@@ -317,14 +334,17 @@ def getOutput(output):
         print()
 
 class NodeThread(threading.Thread):
-    def __init__(self, node, cmd, sqlfile, moo):
+    def __init__(self, node, cmd, sqlfile, moo, updatecatalog):
         threading.Thread.__init__(self)
         self.node = node
         self.cmd = cmd
         self.sqlfile = sqlfile
         self.moo = moo
+        self.updatecatalog = updatecatalog
+        # 0, do not update
+        # 1, update
     def run(self):
-        runCommand(self.node, self.cmd, self.sqlfile, self.moo)
+        self.updatecatalog = runCommand(self.node, self.cmd, self.sqlfile, self.moo, self.updatecatalog)
 
 class Catalog:
     'Base Class for Catalog'
@@ -347,7 +367,6 @@ class Catalog:
     def display(self):
         print("Hostname: ", self.hostname, " Username: ", self.username, " Passwd: ", self.passwd, " DB: ", self.db)
     def update(self, table, n):
-        updated = 1
         try:
             connect = pymysql.connect(self.hostname, self.username, self.passwd, self.db)
             cur = connect.cursor()
@@ -367,11 +386,9 @@ class Catalog:
                 cur.execute(cmd)
                 connect.commit()
             connect.close()
-        except pymysql.InternalError:
-            updated = 0
-        except pymysql.OperationalError:
-            updated = 0
-        return updated
+        except pymysql.Error:
+            return 0
+        return 1
     def update_pt(self, table, n, mtd, mtdinfo):
         updated = 1
         if mtd == 0:
@@ -409,9 +426,10 @@ class Catalog:
         return data
     def create(self):
         try:
+            cmd = "CREATE TABLE dtables (tname VARCHAR(32), nodedriver VARCHAR(64), nodeurl VARCHAR(128), nodeuser VARCHAR(16), nodepasswd VARCHAR(16), partmtd INT, nodeid INT, partcol VARCHAR(32), partparam1 VARCHAR(32), partparam2 VARCHAR(32))"
             connect = pymysql.connect(self.hostname, self.username, self.passwd, self.db)
             cur = connect.cursor()
-            cur.execute("""CREATE TABLE dtables (tname VARCHAR(32), nodedriver VARCHAR(64), nodeurl VARCHAR(128), nodeuser VARCHAR(16), nodepasswd VARCHAR(16), partmtd INT, nodeid INT, partcol VARCHAR(32), partparam1 VARCHAR(32), partparam2 VARCHAR(32))""")
+            cur.execute(cmd)
             connect.close()
         except pymysql.InternalError:
             pass
@@ -445,13 +463,12 @@ class Catalog:
     def insert0(self, header, nodes, csvcontents, tname):
         for n in nodes:
             count = 0
-            if str(n.getTables()).find(tname) > -1:
-                for c in csvcontents:
-                    count += n.update(', '.join("'{0}'".format(w.strip()) for w in c), tname)
+            for c in csvcontents:
+                count += n.update(', '.join("'{0}'".format(w.strip()) for w in c), tname)
             print("[", n.url, "]:", count, " rows inserted.")
-            if count > 0:
-                self.update_pt(tname, n, 0, tname)
-                print("updating catalog for node ", n.url)
+        if count > 0:
+            self.update_pt(tname, n, 0, tname)
+            print("[", self.url, "]: catalog updated.")
     def insert1(self, header, nodes, csvcontents, m, tname):
         print(m)
         # m = {table_name, partmtd, number of nodes, desired node num, col, p1, p2}
@@ -475,7 +492,7 @@ class Catalog:
             print("[", n.url, "]:", count, " rows inserted.")
             if count > 0:
                 self.update_pt(tname, n, 1, m)
-                print("updating catalog for node ", n.url)
+                print("[", self.url, "]: catalog updated.")
     def insert2(self, header, nodes, csvcontents, m, tname):
         # m = {table_name, partmtd, col, p1}
         colindex = 0
@@ -494,7 +511,7 @@ class Catalog:
             print("[", n.url, "]:", count, " rows inserted.")
             if count > 0:
                 self.update_pt(tname, n, 2, m)
-                print("updating catalog for node ", n.url)
+                print("[", self.url, "]: catalog updated.")
     def getuniqueurl(self, localnodes):
         temp = []
         nodeurls = []

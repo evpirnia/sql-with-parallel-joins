@@ -1,0 +1,3 @@
+[ jdbc:mysql://192.168.10.10:3306/testDB1 ]: 2  rows inserted.
+[ jdbc:mysql://192.168.10.20:3306/testDB2 ]: 2  rows inserted.
+[ jdbc:mysql://192.168.10.30:3306/catDB ]: catalog updated.

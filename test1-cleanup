@@ -1,0 +1,9 @@
+#!/bin/bash
+
+cd catalog
+rm garbage.txt
+cd ../machine1
+rm garbage.txt
+cd ../machine2
+rm garbage.txt
+cd ..

@@ -1,0 +1,12 @@
+#!/bin/bash
+
+cd catalog
+vagrant up > garbage.txt
+vagrant ssh -c "cd /vagrant && mysql -u root -ppassword catDB < test2-jane-1.post.2.sql"
+cd ../machine1
+vagrant up > garbage.txt
+vagrant ssh -c "cd /vagrant && mysql -u root -ppassword testDB1 < test2-jane-1.post.1.sql"
+cd ../machine2
+vagrant up > garbage.txt
+vagrant ssh -c "cd /vagrant && mysql -u root -ppassword testDB2 < test2-jane-1.post.1.sql"
+cd ..
