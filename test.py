@@ -23,6 +23,7 @@ def runSQL(argv):
 
     # if clustercfg only has catalog information, read the catalog and create the localnodes list
     if not localnodes:
+        print("hello")
         localnodes = catalog.read()
         if not partitionmtd:
             # clustercfg only has catalog information, read catalog
