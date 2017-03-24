@@ -5,7 +5,8 @@ Overview: This program modifies previous versions of the parallel SQL databases,
 by adding the feature of performing SELECT-FROM-WHERE clauses involving joins
 between two tables.<br />
 
-===========================<br />
+===========================
+## /Part 5
 
 Inputs for runSQL: cluster.cfg & sqlfile.sql<br />
 
@@ -20,9 +21,29 @@ The join query needs to be executed on multiple threads<br />
 *run.sh*: Shell script to run the entire program, taking in both cluster.cfg and
 sqlfile.sql<br />
 
-===========================<br />
+*test.py*: Holds the code to run and parse both cluster.cfg and sqlfile.sql
 
-LOCAL MACHINE (macOS)
+===========================<br />
+## Test Files
+
+*test#-run.sh*: Shell script to run test1 on the server
+
+*test#-jane-#.cfg*: The config file including database login credentials and the number of nodes
+
+*test#-jane-#.out*: The final outcome of testing the specified sql query.
+
+*test#-jane-#.post*: Execute commands on databases involved in the sql query
+
+*test#-jane-#.post.exp*: Holds the expected output from .post
+
+*test#-jane-#.post.out*: Returns the values given from .post.exp
+
+*test#-jane-#.pre*: Login credentials to each node's mysql server, and executes drop table and specified sql statements
+
+*test#-jane-#.sql*: The specified sql statement for a given test
+
+===========================<br />
+## Setup: LOCAL MACHINE (macOS)
 
 Install Homebrew:<br />
 $ ```/usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"```<br />
@@ -35,9 +56,8 @@ $ ```brew cask install vagrant-manager```<br />
 Install python3 if not already on machine: <br />
 $ ```brew install python3```<br />
 
-============================
-
-LOCAL MACHINE (Linux)<br />
+============================<br />
+## Setup: LOCAL MACHINE (Linux)<br />
 
 Install virtualbox & vagrant:<br />
 $ ```sudo apt install virtualbox```<br />
@@ -47,7 +67,7 @@ $ ```sudo apt install vagrant-manager```<br />
 Install python3 if not already on machine:<br />
 $ ```sudo apt install python3```<br />
 
-==========================
+==========================<br />
 
 Install PyMySQL if not already on machine:<br />
 $ ```pip3 install PyMySQL```<br />
@@ -130,6 +150,9 @@ mysql> ```insert into dtables values ('candy', NULL, 'jdbc:mysql://192.168.10.10
 mysql> ```insert into dtables values ('movies', NULL, 'jdbc:mysql://192.168.10.20:3306/TESTDB', 'blakela', 'hulu', NULL, '2', NULL, NULL, NULL);```<br />
 Note: The nodeurl has the specific user's ip address (ie. .10 or .20). nodeid, nodeuser, nodepasswd also correspond with the specific user. <br />
 
+===========================<br />
+## Connection Issue Solutions
+
 *If there is continuous failure to connect to the databases, try this:*<br />
 mysql> ```show grants for 'username'@'localhost';```<br />
 mysql> ```flush privileges;```<br />
@@ -140,3 +163,18 @@ mysql> ```update mysql.user set Grant_priv='Y', Super_priv='Y' where User='root'
 
 Run the script from your local host repo:<br />
 $ ```./run.sh ./cluster.cfg ./sqlfile.sql```<br />
+
+===========================<br />
+## Running Server Tests
+
+#### Creating Tables:
+$```./test1-run.sh```<br />
+
+#### Loading Data Into Tables:
+$```./test2-run.sh```<br />
+
+#### Querying on a Single Table:
+$```./test3-run.sh```<br />
+
+#### Querying on Two Joined Tables:
+$```./test4-run.sh```<br />
