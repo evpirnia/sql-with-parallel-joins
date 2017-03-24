@@ -2,13 +2,8 @@
 
 echo "* initialize catalog with books"
 cd catalog
-vagrant up > garbage.txt
-vagrant ssh -c "cd /vagrant && mysql -u root -ppassword catDB < test2-jane-1.pre.2.sql" &> garbage.txt
-echo "* empyting books table on machine 1"
+mysql -u root -pics421 b_and_e < test2-jane-1.pre.2.sql
 cd ../machine1
-vagrant up > garbage.txt
-vagrant ssh -c "cd /vagrant && mysql -u root -ppassword testDB1 < test2-jane-1.pre.1.sql" &> garbage.txt
-echo "* emptying books table on machine 2"
+mysql -u root -pics421 b_and_e1 < test2-jane-1.pre.1.sql
 cd ../machine2
-vagrant up > garbage.txt
-vagrant ssh -c "cd /vagrant && mysql -u root -ppassword testDB2 < test2-jane-1.pre.1.sql" &> garbage.txt
+mysql -u root -pics421 b_and_e2 < test2-jane-1.pre.1.sql

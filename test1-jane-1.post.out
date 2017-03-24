@@ -1,15 +1,3 @@
-mysql: [Warning] Using a password on the command line interface can be insecure.
-partmtd	nodeid	partcol	partparam1	partparam2
-0	2	NULL	NULL	NULL
-0	1	NULL	NULL	NULL
-Connection to 127.0.0.1 closed.
-mysql: [Warning] Using a password on the command line interface can be insecure.
-isbn	title	price
-asdbnh234dga60	harry potter	22
-asdbnh234dga67	harry potter 2	20
-Connection to 127.0.0.1 closed.
-mysql: [Warning] Using a password on the command line interface can be insecure.
-isbn	title	price
-asdbnh234dga60	harry potter	22
-asdbnh234dga67	harry potter 2	20
-Connection to 127.0.0.1 closed.
+nodedriver	nodeurl	nodeuser
+NULL	jdbc:mysql://localhost:3306/b_and_e1	root
+NULL	jdbc:mysql://localhost:3306/b_and_e2	root

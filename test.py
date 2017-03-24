@@ -23,18 +23,20 @@ def runSQL(argv):
 
     # if clustercfg only has catalog information, read the catalog and create the localnodes list
     if not localnodes:
-        print("hello")
         localnodes = catalog.read()
         if not partitionmtd:
+            print("not partitioned data")
             # clustercfg only has catalog information, read catalog
             readsql(sqlfile, localnodes, catalog)
         else:
+            print("partitioned data")
             # clustercfg only has catalog and partition info
             readcsv(partitionmtd, sqlfile, localnodes, catalog)
     else:
         readsql(sqlfile, localnodes, catalog)
 
 def readcsv(partitionmtd, sqlfile, localnodes, catalog):
+    print(localnodes)
     csvcontents = []
     with open(sqlfile) as c:
         filtered = (line.replace('\n','') for line in c)
@@ -51,7 +53,7 @@ def readcsv(partitionmtd, sqlfile, localnodes, catalog):
     # all csv added to table
     if partmtd == 0:
         tname = partitionmtd[0][0]
-        catalog.insert0(healder, connections, csvcontents, tname)
+        catalog.insert0(header, connections, csvcontents, tname)
     # numnodes in catalog relation and the number of partitons in the config files must be the same
     # update nodes accordingly
     elif partmtd == 1:
@@ -222,8 +224,7 @@ def readClustercfg(clustercfg, catalog):
                     elif temp[0].split(".")[1].find("passwd") > -1:
                         passwd = temp[1]
                         catalog.initialize(hostname, username, passwd, db, -1, url, port)
-                        catalog.create()
-                        # temp2.append(catalog)
+                        catalog.create()			
                 elif temp[0].split(".")[0].find("localnode") > -1:
                     if temp[0].split(".")[1].find("driver") > -1:
                         num = num + 1

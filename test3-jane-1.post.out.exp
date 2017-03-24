@@ -1,5 +1,5 @@
 tname	nodedriver	nodeurl	nodeuser	nodepasswd	partmtd	nodeid	partcol	partparam1	partparam2
-books	NULL	jdbc:mysql://192.168.10.10:3306/testDB1	evelynb	netflix	NULL	1	NULL	NULL	NULL
-books	NULL	jdbc:mysql://192.168.10.20:3306/testDB2	blakela	hulu	NULL	2	NULL	NULL	NULL
+books	NULL	jdbc:mysql://localhost:3306/b_and_e1	root	ics421	NULL	1	NULL	NULL	NULL
+books	NULL	jdbc:mysql://localhost:3306/b_and_e2	root	ics421	NULL	2	NULL	NULL	NULL
 title
 Harry Potter

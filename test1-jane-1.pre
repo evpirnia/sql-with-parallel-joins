@@ -1,18 +1,11 @@
 #!/bin/bash
 
-echo "* dropping catalog database"
 cd catalog
 echo "y" > y.txt
-vagrant up > garbage.txt
-vagrant ssh -c "cd /vagrant && mysqladmin -u root -ppassword drop catDB < y.txt" &> garbage.txt
+mysqladmin -u root -pics421 drop b_and_e < y.txt > garbage.txt
 rm y.txt
-echo "* creating catalog database"
-vagrant ssh -c "cd /vagrant && mysqladmin -u root -ppassword create catDB" &> garbage.txt
-echo "* dropping books table on machine 1"
+mysqladmin -u root -pics421 create b_and_e > garbage.txt
 cd ../machine1
-vagrant up > garbage.txt
-vagrant ssh -c "cd /vagrant && mysql -u root -ppassword testDB1 < test1-jane-1.pre.sql" &> garbage.txt
-echo "* dropping books table on machine 2"
+mysql -u root -pics421 b_and_e1 < test1-jane-1.pre.sql > garbage.txt
 cd ../machine2
-vagrant up > garbage.txt
-vagrant ssh -c "cd /vagrant && mysql -u root -ppassword testDB2 < test1-jane-1.pre.sql" &> garbage.txt
+mysql -u root -pics421 b_and_e2 < test1-jane-1.pre.sql > garbage.txt

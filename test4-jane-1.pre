@@ -1,14 +1,8 @@
 #!/bin/bash
 
-echo "* initiating catalog with sailors and reserves partition info"
 cd catalog
-vagrant up > garbage.txt
-vagrant ssh -c "cd /vagrant && mysql -u root -ppassword catDB < test4-jane-1.pre.2.sql" &> garbage.txt
-echo "* initializing sailors and reserves table on machine 1"
+mysql -u root -pics421 b_and_e < test4-jane-1.pre.2.sql
 cd ../machine1
-vagrant up > garbage.txt
-vagrant ssh -c "cd /vagrant && mysql -u root -ppassword testDB1 < test4-jane-1.pre.1.sql" &> garbage.txt
-echo "* initializing sailors and reserves table on machine 2"
+mysql -u root -pics421 b_and_e1 < test4-jane-1.pre.1.sql
 cd ../machine2
-vagrant up > garbage.txt
-vagrant ssh -c "cd /vagrant && mysql -u root -ppassword testDB2 < test4-jane-1.pre.3.sql" &> garbage.txt
+mysql -u root -pics421 b_and_e2 < test4-jane-1.pre.3.sql
